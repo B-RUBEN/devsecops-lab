@@ -2,13 +2,16 @@ name: DevSecOps Pipeline
 on:
   push:
     branches: [ "main" ]
+permissions:
+  contents: read
+  security-events: write
+  actions: read
 jobs:
   devsecops:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        
+      - uses: actions/checkout@v4
+      
       ############################################
       # 1. Analyse SAST CodeQL
       ############################################

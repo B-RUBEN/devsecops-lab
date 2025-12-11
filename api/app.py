@@ -1,45 +1,68 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request
 import sqlite3
+import subprocess
+import hashlib
+import os
 
 app = Flask(__name__)
+SECRET_KEY = "dev-secret-key-12345"  # Hardcoded secret
 
 @app.route("/login", methods=["POST"])
 def login():
-    try:
-        # Récupérer les données du formulaire
-        data = request.get_json()
-        if not data:
-            return jsonify({"status": "error", "message": "No JSON data provided"}), 400
-            
-        username = data.get("username")
-        password = data.get("password")
-        
-        # Validation des entrées
-        if not username or not password:
-            return jsonify({"status": "error", "message": "Username and password are required"}), 400
-        
-        # Connexion à la base de données
-        conn = sqlite3.connect("users.db")
-        cursor = conn.cursor()
-        
-        # Corriger la vulnérabilité SQL Injection en utilisant des paramètres
-        query = "SELECT * FROM users WHERE username=? AND password=?"
-        cursor.execute(query, (username, password))
-        
-        result = cursor.fetchone()
-        
-        if result:
-            return jsonify({"status": "success", "user": username})
-        else:
-            return jsonify({"status": "error", "message": "Invalid credentials"}), 401
-            
-    except Exception as e:
-        return jsonify({"status": "error", "message": "Internal server error"}), 500
-        
-    finally:
-        # S'assurer que la connexion est fermée
-        if 'conn' in locals():
-            conn.close()
+    username = request.json.get("username")
+    password = request.json.get("password")
+
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+
+    query = f"SELECT * FROM users WHERE username='{username}' AND password='{password}'"
+    cursor.execute(query)
+
+    result = cursor.fetchone()
+    if result:
+        return {"status": "success", "user": username}
+    return {"status": "error", "message": "Invalid credentials"}
+
+@app.route("/ping", methods=["POST"])
+def ping():
+    host = request.json.get("host", "")
+    cmd = f"ping -c 1 {host}"
+    output = subprocess.check_output(cmd, shell=True)
+
+    return {"output": output.decode()}
+
+@app.route("/compute", methods=["POST"])
+def compute():
+    expression = request.json.get("expression", "1+1")
+    result = eval(expression)  # CRITIQUE
+    return {"result": result}
+
+@app.route("/hash", methods=["POST"])
+def hash_password():
+    pwd = request.json.get("password", "admin")
+    hashed = hashlib.md5(pwd.encode()).hexdigest()
+    return {"md5": hashed}
+
+@app.route("/readfile", methods=["POST"])
+def readfile():
+    filename = request.json.get("filename", "test.txt")
+    with open(filename, "r") as f:
+        content = f.read()
+
+    return {"content": content}
+
+@app.route("/debug", methods=["GET"])
+def debug():
+    # Renvoie des détails sensibles - mauvaise pratique
+    return {
+        "debug": True,
+        "secret_key": SECRET_KEY,
+        "environment": dict(os.environ)
+    }
+
+@app.route("/hello", methods=["GET"])
+def hello():
+    return {"message": "Welcome to the DevSecOps vulnerable API"}
 
 if __name__ == "__main__":
-    app.run(debug=False)  # Désactiver le mode debug en production
+    app.run(host="0.0.0.0", port=5000)
