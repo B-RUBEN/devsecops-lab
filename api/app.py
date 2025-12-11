@@ -3,6 +3,7 @@ import sqlite3
 import subprocess
 import hashlib
 import os
+import shlex
 
 app = Flask(__name__)
 SECRET_KEY = "dev-secret-key-12345"  # Hardcoded secret
@@ -26,8 +27,9 @@ def login():
 @app.route("/ping", methods=["POST"])
 def ping():
     host = request.json.get("host", "")
-    cmd = f"ping -c 1 {host}"
-    output = subprocess.check_output(cmd, shell=True)
+    # Corriger la vulnérabilité de command injection
+    cmd = ["ping", "-c", "1", host]
+    output = subprocess.check_output(cmd)
 
     return {"output": output.decode()}
 
@@ -40,8 +42,9 @@ def compute():
 @app.route("/hash", methods=["POST"])
 def hash_password():
     pwd = request.json.get("password", "admin")
-    hashed = hashlib.md5(pwd.encode()).hexdigest()
-    return {"md5": hashed}
+    # Corriger la vulnérabilité de hachage faible
+    hashed = hashlib.sha256(pwd.encode()).hexdigest()
+    return {"sha256": hashed}
 
 @app.route("/readfile", methods=["POST"])
 def readfile():
